@@ -1,114 +1,96 @@
-import curses
+import pygame
 import random
 
-def main(screen):
-    # إعداد الشاشة
-    curses.curs_set(0)
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)  # الطعام
-    curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)  # الثعبان
-    curses.init_pair(3, curses.COLOR_WHITE, curses.COLOR_BLACK)  # النصوص
-    curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)  # العوائق
+# إعدادات اللعبة
+pygame.init()
+black = (0, 0, 0)
+green = (0, 255, 0)
+red = (213, 50, 80)
+blue = (50, 153, 213)
+white = (255, 255, 255)
 
-    screen_height, screen_width = screen.getmaxyx()
-    window = curses.newwin(screen_height, screen_width, 0, 0)
-    window.keypad(True)
-    window.timeout(100)
+screen_width = 600
+screen_height = 400
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption('Snake Game')
 
-    # إعداد الثعبان والطعام
-    snk_x = screen_width // 4
-    snk_y = screen_height // 2
-    snake = [
-        [snk_y, snk_x],
-        [snk_y, snk_x - 1],
-        [snk_y, snk_x - 2],
-    ]
+snake_block = 20
+clock = pygame.time.Clock()
 
-    food = [screen_height // 2, screen_width // 2]
-    window.addch(food[0], food[1], curses.ACS_PI, curses.color_pair(1))
+# رسم الثعبان باستخدام دوائر
+def draw_snake(snake):
+    for segment in snake:
+        pygame.draw.circle(screen, green, (segment[0] + snake_block // 2, segment[1] + snake_block // 2), snake_block // 2)
 
-    # إعداد العوائق
-    num_obstacles = 10  # عدد العوائق
-    obstacles = []
-    for _ in range(num_obstacles):
-        while True:
-            obstacle = [
-                random.randint(1, screen_height - 2),
-                random.randint(1, screen_width - 2)
-            ]
-            if obstacle not in snake and obstacle != food:
-                obstacles.append(obstacle)
-                window.addch(obstacle[0], obstacle[1], curses.ACS_VLINE, curses.color_pair(4))
-                break
+# إعداد اللعبة
+def gameLoop():
+    game_over = False
+    game_close = False
 
-    # الإعدادات الأولية
-    key = curses.KEY_RIGHT
-    score = 0
-    level = 1
+    x1 = screen_width / 2
+    y1 = screen_height / 2
+    x1_change = 0
+    y1_change = 0
 
-    # تعليمات
-    window.addstr(0, 2, "Welcome to Snake Game!", curses.color_pair(3))
-    window.addstr(1, 2, "Use arrow keys to move. Press 'q' to quit.", curses.color_pair(3))
+    snake = []
+    length_of_snake = 1
 
-    while True:
-        # عرض النقاط والمستوى
-        window.addstr(0, 2, f'Score: {score} Level: {level} ', curses.color_pair(3))
+    foodx = round(random.randrange(0, screen_width - snake_block) / 20.0) * 20.0
+    foody = round(random.randrange(0, screen_height - snake_block) / 20.0) * 20.0
 
-        # الحصول على المفتاح
-        next_key = window.getch()
-        if next_key == ord('q'):
-            break
-        key = key if next_key == -1 else next_key
+    while not game_over:
 
-        # التحقق من الاصطدام
-        if (snake[0][0] in [0, screen_height] or
-                snake[0][1] in [0, screen_width] or
-                snake[0] in snake[1:] or
-                snake[0] in obstacles):
-            curses.endwin()
-            print(f"Game Over! Final Score: {score}, Level: {level}")
-            quit()
+        while game_close == True:
+            screen.fill(blue)
+            font = pygame.font.SysFont("bahnschrift", 25)
+            mesg = font.render("You Lost! Press C-Play Again or Q-Quit", True, red)
+            screen.blit(mesg, [screen_width / 6, screen_height / 3])
+            pygame.display.update()
 
-        # تحريك الرأس
-        new_head = [snake[0][0], snake[0][1]]
-        if key == curses.KEY_DOWN:
-            new_head[0] += 1
-        if key == curses.KEY_UP:
-            new_head[0] -= 1
-        if key == curses.KEY_RIGHT:
-            new_head[1] += 1
-        if key == curses.KEY_LEFT:
-            new_head[1] -= 1
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_q:
+                        game_over = True
+                        game_close = False
+                    if event.key == pygame.K_c:
+                        gameLoop()
 
-        snake.insert(0, new_head)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_over = True
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    x1_change = -snake_block
+                    y1_change = 0
+                elif event.key == pygame.K_RIGHT:
+                    x1_change = snake_block
+                    y1_change = 0
+                elif event.key == pygame.K_UP:
+                    y1_change = -snake_block
+                    x1_change = 0
+                elif event.key == pygame.K_DOWN:
+                    y1_change = snake_block
+                    x1_change = 0
 
-        # تناول الطعام
-        if snake[0] == food:
-            score += 1
-            if score % 5 == 0:
-                level += 1
-                window.timeout(max(10, 100 - (level * 10)))  # زيادة السرعة
+        if x1 >= screen_width or x1 < 0 or y1 >= screen_height or y1 < 0:
+            game_close = True
+        x1 += x1_change
+        y1 += y1_change
+        screen.fill(black)
 
-            food = None
-            while food is None:
-                new_food = [
-                    random.randint(1, screen_height - 2),
-                    random.randint(1, screen_width - 2)
-                ]
-                if new_food not in snake and new_food not in obstacles:
-                    food = new_food
-            window.addch(food[0], food[1], curses.ACS_PI, curses.color_pair(1))
-        else:
-            # إزالة الذيل
-            tail = snake.pop()
-            window.addch(tail[0], tail[1], ' ')
+        pygame.draw.rect(screen, white, [foodx, foody, snake_block, snake_block])
+        draw_snake(snake)
 
-        # رسم الرأس
-        window.addch(snake[0][0], snake[0][1], curses.ACS_CKBOARD, curses.color_pair(2))
+        pygame.display.update()
 
-    # رسالة نهاية اللعبة
-    curses.endwin()
-    print(f"Game Over! Final Score: {score}, Level: {level}")
+        if x1 == foodx and y1 == foody:
+            foodx = round(random.randrange(0, screen_width - snake_block) / 20.0) * 20.0
+            foody = round(random.randrange(0, screen_height - snake_block) / 20.0) * 20.0
+            length_of_snake += 1
 
-# تشغيل اللعبة
-curses.wrapper(main)
+        clock.tick(15)
+
+    pygame.quit()
+    quit()
+
+gameLoop()
